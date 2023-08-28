@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.26)
 project(calm C)
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 23)
 set(Vulkan_INCLUDE_DIR /Users/personal/VulkanSDK/1.3.261.0/macOS/include)
 set(Vulkan_LIBRARY /Users/personal/VulkanSDK/1.3.261.0/macOS/lib/libvulkan.dylib)
 add_subdirectory(lib/glfw-3.3.8)
 find_package(Vulkan REQUIRED)
-add_executable(calm main.c window.c)
+add_executable(calm main.c window.c
+        graphics.c
+        graphics.h)
 target_link_libraries(calm glfw ${GLFW_LIBRARIES} Vulkan::Vulkan)

@@ -3,12 +3,15 @@
 
 #include <stdio.h>
 
+#include "graphics.h"
 #include "window.h"
 
 int main(){
     glfwInit();
 
     Window window = window_create();
+
+    VkInstance instance = create_instance();
 
     uint32_t extensionCount = 0;
     vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
@@ -18,7 +21,7 @@ int main(){
         glfwPollEvents();
     }
 
-    glfwDestroyWindow(window.glfw_window);
+    window_destroy(&window);
 
     glfwTerminate();
 

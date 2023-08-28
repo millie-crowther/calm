@@ -8,5 +8,6 @@ typedef struct Window {
 } Window;
 
 Window window_create();
+void window_destroy(const Window * window);
 
 #endif

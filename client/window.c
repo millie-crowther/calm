@@ -12,3 +12,7 @@ Window window_create(){
         )
     };
 }
+
+void window_destroy(const Window * window){
+    glfwDestroyWindow(window->glfw_window);
+}
