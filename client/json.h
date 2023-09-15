@@ -15,11 +15,21 @@ typedef enum JSONType {
 
 typedef struct JSON {
     char * start;
+    char * end;
 } JSON;
 
-JSONType json_infer_type(const JSON * json);
-bool json_get_bool(const JSON * json);
-int64_t json_get_integer(const JSON * json);
+typedef struct JSONDocument {
+    char * data;
+    JSON root;
+} JSONDocument;
+
+void json_document_create(JSONDocument * document, char * data, uint32_t length);
+void json_document_destroy(JSONDocument * document);
+
+JSONType json_infer_type(const JSON json);
+bool json_get_bool(const JSON json);
+int64_t json_get_integer(const JSON json);
+
 
 
 #endif
