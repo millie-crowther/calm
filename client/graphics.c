@@ -16,20 +16,21 @@ VkInstance create_instance() {
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &application_info;
 
-    uint32_t glfw_extension_count = 0;
-    const char ** glfw_extensions;
+    uint32_t extension_count = 0;
+    const char ** glfw_extensions = glfwGetRequiredInstanceExtensions(&extension_count);
 
-    glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
-
-    const char * required_extensions[glfw_extension_count + 1];
-    for (int i = 0; i < glfw_extension_count; i++){
+    const char * required_extensions[extension_count + 1];
+    for (int i = 0; i < extension_count; i++){
         required_extensions[i] = glfw_extensions[i];
     }
-    required_extensions[glfw_extension_count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 
+    // apple only
+    required_extensions[extension_count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
     create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    extension_count += 1;
+    //
 
-    create_info.enabledExtensionCount = glfw_extension_count + 1;
+    create_info.enabledExtensionCount = extension_count;
     create_info.ppEnabledExtensionNames = required_extensions;
     create_info.enabledLayerCount = 0;
 
