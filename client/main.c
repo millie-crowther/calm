@@ -10,19 +10,14 @@ int main(){
     glfwInit();
 
     Window window = window_create();
-
-    VkInstance instance = create_instance();
-
-    uint32_t extensionCount = 0;
-    vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
-    printf("Extension count = %d\n", extensionCount);
+    VkInstance instance = instance_create();
 
     while(!glfwWindowShouldClose(window.glfw_window)) {
         glfwPollEvents();
     }
 
+    instance_destroy(instance);
     window_destroy(&window);
-
     glfwTerminate();
 
     return 0;

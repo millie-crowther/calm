@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-VkInstance create_instance() {
+VkInstance instance_create() {
     VkApplicationInfo application_info;
     application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     application_info.pApplicationName = "Hello Triangle";
@@ -16,31 +16,43 @@ VkInstance create_instance() {
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.pApplicationInfo = &application_info;
 
-    uint32_t extension_count = 0;
-    const char ** glfw_extensions = glfwGetRequiredInstanceExtensions(&extension_count);
+    uint32_t glfw_extension_count = 0;
+    const char ** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
 
-    const char * required_extensions[extension_count + 1];
-    for (int i = 0; i < extension_count; i++){
+    const char * required_extensions[glfw_extension_count];
+    for (int i = 0; i < glfw_extension_count; i++){
         required_extensions[i] = glfw_extensions[i];
     }
 
     // apple only
-    required_extensions[extension_count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
-    create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-    extension_count += 1;
+//    required_extensions[glfw_extension_count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+//    create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+//    glfw_extension_count += 1;
     //
 
-    create_info.enabledExtensionCount = extension_count;
+    create_info.enabledExtensionCount = glfw_extension_count;
     create_info.ppEnabledExtensionNames = required_extensions;
     create_info.enabledLayerCount = 0;
 
     VkInstance instance;
     VkResult result = vkCreateInstance(&create_info, NULL, &instance);
-    printf("result = %d, x = %d\n", result, VK_ERROR_INCOMPATIBLE_DRIVER);
     if (result != VK_SUCCESS){
         fprintf(stderr, "Failed to create instance\n");
         exit(-1);
     }
 
+    uint32_t extension_count = 0;
+    vkEnumerateInstanceExtensionProperties(NULL, &extension_count, NULL);
+    VkExtensionProperties extensions[extension_count];
+    vkEnumerateInstanceExtensionProperties(NULL, &extension_count, extensions);
+    printf("Available extensions:\n");
+    for (uint32_t i = 0; i < extension_count; i++){
+        printf("\t%s\n", extensions[i].extensionName);
+    }
+
     return instance;
+}
+
+void instance_destroy(VkInstance instance) {
+    vkDestroyInstance(instance, NULL);
 }
