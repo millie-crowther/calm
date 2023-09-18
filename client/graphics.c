@@ -59,12 +59,25 @@ void instance_destroy(VkInstance instance) {
 }
 
 bool physical_device_is_suitable(VkPhysicalDevice physical_device){
+    VkPhysicalDeviceProperties physical_device_properties;
+    VkPhysicalDeviceFeatures physical_device_features;
+    vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
+    vkGetPhysicalDeviceFeatures(physical_device, &physical_device_features);
+
+    printf("physical device type = %d\n", physical_device_properties.deviceType);
+
+    if (physical_device_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
+        return false;
+    }
+
     return true;
 }
 
 VkPhysicalDevice physical_device_pick(VkInstance instance) {
     uint32_t physical_device_count;
     vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
+
+    printf("%d physical devices available\n", physical_device_count);
 
     VkPhysicalDevice physical_devices[physical_device_count];
     vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
