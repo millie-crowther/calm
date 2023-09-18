@@ -1,5 +1,6 @@
 #include "graphics.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -55,4 +56,26 @@ VkInstance instance_create() {
 
 void instance_destroy(VkInstance instance) {
     vkDestroyInstance(instance, NULL);
+}
+
+bool physical_device_is_suitable(VkPhysicalDevice physical_device){
+    return true;
+}
+
+VkPhysicalDevice physical_device_pick(VkInstance instance) {
+    uint32_t physical_device_count;
+    vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
+
+    VkPhysicalDevice physical_devices[physical_device_count];
+    vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
+
+    for (uint32_t i = 0; i < physical_device_count; i++){
+        VkPhysicalDevice physical_device = physical_devices[i];
+        if (physical_device_is_suitable(physical_device)){
+            return physical_device;
+        }
+    }
+
+    printf("Failed to find a suitable physical device!\n");
+    exit(-1);
 }

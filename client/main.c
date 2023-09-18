@@ -11,6 +11,7 @@ int main(){
 
     Window window = window_create();
     VkInstance instance = instance_create();
+    VkPhysicalDevice physical_device = physical_device_pick(instance);
 
     while(!glfwWindowShouldClose(window.glfw_window)) {
         glfwPollEvents();

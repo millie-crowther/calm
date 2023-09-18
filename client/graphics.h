@@ -7,4 +7,6 @@
 VkInstance instance_create();
 void instance_destroy(VkInstance instance);
 
+VkPhysicalDevice physical_device_pick(VkInstance instance);
+
 #endif
