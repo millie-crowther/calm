@@ -58,26 +58,48 @@ void instance_destroy(VkInstance instance) {
     vkDestroyInstance(instance, NULL);
 }
 
-bool physical_device_is_suitable(VkPhysicalDevice physical_device){
+static QueueFamilyIndices physical_device_find_queue_families(VkPhysicalDevice physical_device){
+    QueueFamilyIndices queue_family_indices = (QueueFamilyIndices){
+            .graphics_family = -1,
+    };
+
+    uint32_t queue_family_count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, NULL);
+
+    VkQueueFamilyProperties queue_families[queue_family_count];
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families);
+
+    for (int i = 0; i < queue_family_count; i++){
+        if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+            queue_family_indices.graphics_family = i;
+        }
+    }
+
+    return queue_family_indices;
+}
+
+static bool physical_device_is_suitable(VkPhysicalDevice physical_device){
     VkPhysicalDeviceProperties physical_device_properties;
     VkPhysicalDeviceFeatures physical_device_features;
     vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
     vkGetPhysicalDeviceFeatures(physical_device, &physical_device_features);
 
-    printf("physical device type = %d\n", physical_device_properties.deviceType);
-
     if (physical_device_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
+        return false;
+    }
+
+    QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device);
+    if (queue_family_indices.graphics_family < 0){
         return false;
     }
 
     return true;
 }
 
+
 VkPhysicalDevice physical_device_pick(VkInstance instance) {
     uint32_t physical_device_count;
     vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
-
-    printf("%d physical devices available\n", physical_device_count);
 
     VkPhysicalDevice physical_devices[physical_device_count];
     vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
@@ -91,4 +113,39 @@ VkPhysicalDevice physical_device_pick(VkInstance instance) {
 
     printf("Failed to find a suitable physical device!\n");
     exit(-1);
+}
+
+Device device_create(VkInstance instance) {
+    VkPhysicalDevice physical_device = physical_device_pick(instance);
+    QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device);
+
+    float queue_priority = 1.0f;
+    VkDeviceQueueCreateInfo queue_create_info = (VkDeviceQueueCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+        .queueFamilyIndex = queue_family_indices.graphics_family,
+        .queueCount = 1,
+        .pQueuePriorities = &queue_priority,
+    };
+    VkPhysicalDeviceFeatures device_features = {};
+
+    VkDeviceCreateInfo device_create_info = (VkDeviceCreateInfo) {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pQueueCreateInfos = &queue_create_info,
+        .queueCreateInfoCount = 1,
+        .pEnabledFeatures = &device_features,
+        .enabledExtensionCount = 0,
+        .enabledLayerCount = 0,
+    };
+
+    VkDevice logical_device;
+    if (vkCreateDevice(physical_device, &device_create_info, NULL, &logical_device)){
+        printf("Failed to create device!\n");
+        exit(-1);
+    }
+
+    return (Device){
+        .physical_device = physical_device,
+        .logical_device = logical_device,
+        .queue_family_indices = queue_family_indices,
+    };
 }
