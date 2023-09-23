@@ -6,6 +6,7 @@
 
 typedef struct QueueFamilyIndices {
     int32_t graphics_family;
+    int32_t present_family;
 } QueueFamilyIndices;
 
 VkInstance instance_create() {
@@ -62,9 +63,10 @@ void instance_destroy(VkInstance instance) {
     vkDestroyInstance(instance, NULL);
 }
 
-static QueueFamilyIndices physical_device_find_queue_families(VkPhysicalDevice physical_device){
+static QueueFamilyIndices physical_device_find_queue_families(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
     QueueFamilyIndices queue_family_indices = (QueueFamilyIndices){
-            .graphics_family = -1,
+        .graphics_family = -1,
+        .present_family = -1,
     };
 
     uint32_t queue_family_count = 0;
@@ -77,12 +79,18 @@ static QueueFamilyIndices physical_device_find_queue_families(VkPhysicalDevice p
         if (queue_families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             queue_family_indices.graphics_family = i;
         }
+
+        VkBool32 present_support = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface, &present_support);
+        if (present_support){
+            queue_family_indices.present_family = i;
+        }
     }
 
     return queue_family_indices;
 }
 
-static bool physical_device_is_suitable(VkPhysicalDevice physical_device){
+static bool physical_device_is_suitable(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
     VkPhysicalDeviceProperties physical_device_properties;
     VkPhysicalDeviceFeatures physical_device_features;
     vkGetPhysicalDeviceProperties(physical_device, &physical_device_properties);
@@ -92,15 +100,15 @@ static bool physical_device_is_suitable(VkPhysicalDevice physical_device){
         return false;
     }
 
-    QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device);
-    if (queue_family_indices.graphics_family < 0){
+    QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device, surface);
+    if (queue_family_indices.graphics_family < 0 || queue_family_indices.present_family < 0){
         return false;
     }
 
     return true;
 }
 
-VkPhysicalDevice physical_device_pick(VkInstance instance) {
+VkPhysicalDevice physical_device_pick(VkInstance instance, VkSurfaceKHR surface) {
     uint32_t physical_device_count;
     vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
 
@@ -109,7 +117,7 @@ VkPhysicalDevice physical_device_pick(VkInstance instance) {
 
     for (uint32_t i = 0; i < physical_device_count; i++){
         VkPhysicalDevice physical_device = physical_devices[i];
-        if (physical_device_is_suitable(physical_device)){
+        if (physical_device_is_suitable(physical_device, surface)){
             return physical_device;
         }
     }
@@ -118,23 +126,36 @@ VkPhysicalDevice physical_device_pick(VkInstance instance) {
     exit(-1);
 }
 
-Device device_create(VkInstance instance) {
-    VkPhysicalDevice physical_device = physical_device_pick(instance);
-    QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device);
+Device device_create(VkInstance instance, VkSurfaceKHR surface) {
+    VkPhysicalDevice physical_device = physical_device_pick(instance, surface);
+    QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device, surface);
 
     float queue_priority = 1.0f;
-    VkDeviceQueueCreateInfo queue_create_info = (VkDeviceQueueCreateInfo) {
+    VkDeviceQueueCreateInfo queue_create_infos[3];
+    queue_create_infos[0] = (VkDeviceQueueCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .queueFamilyIndex = queue_family_indices.graphics_family,
         .queueCount = 1,
         .pQueuePriorities = &queue_priority,
     };
+    uint32_t queue_create_count = 1;
+
+    if (queue_family_indices.graphics_family != queue_family_indices.present_family){
+        queue_create_infos[1] = (VkDeviceQueueCreateInfo) {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = queue_family_indices.present_family,
+            .queueCount = 1,
+            .pQueuePriorities = &queue_priority,
+        };
+        queue_create_count++;
+    }
+
     VkPhysicalDeviceFeatures device_features = {};
 
     VkDeviceCreateInfo device_create_info = (VkDeviceCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pQueueCreateInfos = &queue_create_info,
-        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = queue_create_infos,
+        .queueCreateInfoCount = queue_create_count,
         .pEnabledFeatures = &device_features,
         .enabledExtensionCount = 0,
         .enabledLayerCount = 0,
@@ -149,9 +170,27 @@ Device device_create(VkInstance instance) {
     VkQueue graphics_queue;
     vkGetDeviceQueue(logical_device, queue_family_indices.graphics_family, 0, &graphics_queue);
 
+    VkQueue present_queue;
+    vkGetDeviceQueue(logical_device, queue_family_indices.present_family, 0, &present_queue);
+
     return (Device){
         .physical_device = physical_device,
         .logical_device = logical_device,
         .graphics_queue = graphics_queue,
+        .present_queue = present_queue,
     };
+}
+
+VkSurfaceKHR surface_create(VkInstance instance, Window window) {
+    VkSurfaceKHR surface;
+    glfwCreateWindowSurface(instance, window.glfw_window, NULL, &surface);
+    return surface;
+}
+
+void device_destroy(const Device device) {
+    vkDestroyDevice(device.logical_device, NULL);
+}
+
+void surface_destroy(const VkInstance instance, const VkSurfaceKHR surface) {
+    vkDestroySurfaceKHR(instance, surface, NULL);
 }
