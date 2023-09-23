@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct QueueFamilyIndices {
+    int32_t graphics_family;
+} QueueFamilyIndices;
+
 VkInstance instance_create() {
     VkApplicationInfo application_info;
     application_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -96,7 +100,6 @@ static bool physical_device_is_suitable(VkPhysicalDevice physical_device){
     return true;
 }
 
-
 VkPhysicalDevice physical_device_pick(VkInstance instance) {
     uint32_t physical_device_count;
     vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
@@ -143,9 +146,12 @@ Device device_create(VkInstance instance) {
         exit(-1);
     }
 
+    VkQueue graphics_queue;
+    vkGetDeviceQueue(logical_device, queue_family_indices.graphics_family, 0, &graphics_queue);
+
     return (Device){
         .physical_device = physical_device,
         .logical_device = logical_device,
-        .queue_family_indices = queue_family_indices,
+        .graphics_queue = graphics_queue,
     };
 }
