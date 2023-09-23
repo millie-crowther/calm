@@ -6,6 +6,9 @@
 
 #include "window.h"
 
+VkInstance instance_create();
+void instance_destroy(VkInstance instance);
+
 typedef struct Device {
     VkDevice logical_device;
     VkPhysicalDevice physical_device;
@@ -13,12 +16,15 @@ typedef struct Device {
     VkQueue present_queue;
 } Device;
 
-VkInstance instance_create();
-void instance_destroy(VkInstance instance);
-
 Device device_create(VkInstance instance, VkSurfaceKHR surface);
 void device_destroy(const Device device);
+
 VkSurfaceKHR surface_create(VkInstance instance, Window window);
 void surface_destroy(const VkInstance instance, const VkSurfaceKHR surface);
+
+typedef struct Swapchain {
+
+} Swapchain;
+
 
 #endif

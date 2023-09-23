@@ -3,6 +3,11 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+const char * required_device_extensions[] = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
 
 typedef struct QueueFamilyIndices {
     int32_t graphics_family;
@@ -90,6 +95,31 @@ static QueueFamilyIndices physical_device_find_queue_families(VkPhysicalDevice p
     return queue_family_indices;
 }
 
+static bool physical_device_has_required_extensions(VkPhysicalDevice physical_device){
+    uint32_t device_extension_count;
+    vkEnumerateDeviceExtensionProperties(physical_device, NULL, &device_extension_count, NULL);
+
+    VkExtensionProperties device_extensions[device_extension_count];
+    vkEnumerateDeviceExtensionProperties(physical_device, NULL, &device_extension_count, device_extensions);
+
+    uint32_t required_extensions_length = sizeof(required_device_extensions) / sizeof(required_device_extensions[0]);
+    for (uint32_t i = 0; i < required_extensions_length; i++){
+        bool extension_found = false;
+
+        for (uint32_t j = 0; j < device_extension_count; j++){
+            if (strcmp(required_device_extensions[i], device_extensions[j].extensionName) == 0){
+                extension_found = true;
+            }
+        }
+
+        if (!extension_found){
+            return false;
+        }
+    }
+
+    return true;
+}
+
 static bool physical_device_is_suitable(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
     VkPhysicalDeviceProperties physical_device_properties;
     VkPhysicalDeviceFeatures physical_device_features;
@@ -102,6 +132,10 @@ static bool physical_device_is_suitable(VkPhysicalDevice physical_device, VkSurf
 
     QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device, surface);
     if (queue_family_indices.graphics_family < 0 || queue_family_indices.present_family < 0){
+        return false;
+    }
+
+    if (!physical_device_has_required_extensions(physical_device)){
         return false;
     }
 
@@ -131,7 +165,7 @@ Device device_create(VkInstance instance, VkSurfaceKHR surface) {
     QueueFamilyIndices queue_family_indices = physical_device_find_queue_families(physical_device, surface);
 
     float queue_priority = 1.0f;
-    VkDeviceQueueCreateInfo queue_create_infos[3];
+    VkDeviceQueueCreateInfo queue_create_infos[2];
     queue_create_infos[0] = (VkDeviceQueueCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
         .queueFamilyIndex = queue_family_indices.graphics_family,
@@ -157,7 +191,8 @@ Device device_create(VkInstance instance, VkSurfaceKHR surface) {
         .pQueueCreateInfos = queue_create_infos,
         .queueCreateInfoCount = queue_create_count,
         .pEnabledFeatures = &device_features,
-        .enabledExtensionCount = 0,
+        .ppEnabledExtensionNames = required_device_extensions,
+        .enabledExtensionCount = sizeof(required_device_extensions) / sizeof(required_device_extensions[0]),
         .enabledLayerCount = 0,
     };
 
