@@ -13,11 +13,13 @@ int main(){
     VkInstance instance = instance_create();
     VkSurfaceKHR surface = surface_create(instance, window);
     Device device = device_create(instance, surface);
+    VkSwapchainKHR swapchain = swapchain_create(window, device, surface);
 
     while(!glfwWindowShouldClose(window.glfw_window)) {
         glfwPollEvents();
     }
 
+    swapchain_destroy(swapchain, device);
     device_destroy(device);
     surface_destroy(instance, surface);
     instance_destroy(instance);

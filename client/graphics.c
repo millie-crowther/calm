@@ -192,9 +192,7 @@ VkPresentModeKHR choose_present_mode(VkPhysicalDevice physical_device, VkSurface
     return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-VkExtent2D choose_swap_extent(Window window, VkPhysicalDevice physical_device, VkSurfaceKHR surface){
-    VkSurfaceCapabilitiesKHR capabilities;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities);
+VkExtent2D choose_swap_extent(Window window, VkSurfaceCapabilitiesKHR capabilities){
 
     if (capabilities.currentExtent.width != UINT32_MAX){
         return capabilities.currentExtent;
@@ -216,12 +214,57 @@ VkExtent2D choose_swap_extent(Window window, VkPhysicalDevice physical_device, V
     return extent;
 }
 
-SwapChain swap_chain_create(Window window, VkPhysicalDevice physical_device, VkSurfaceKHR surface){
-    VkSurfaceFormatKHR surface_format = choose_swap_surface_format(physical_device, surface);
-    VkPresentModeKHR present_mode = choose_present_mode(physical_device, surface);
-    VkExtent2D extent = choose_swap_extent(window, physical_device, surface);
+VkSwapchainKHR swapchain_create(Window window, Device device, VkSurfaceKHR surface){
+    VkSurfaceFormatKHR surface_format = choose_swap_surface_format(device.physical_device, surface);
+    VkPresentModeKHR present_mode = choose_present_mode(device.physical_device, surface);
 
+    VkSurfaceCapabilitiesKHR capabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.physical_device, surface, &capabilities);
+    VkExtent2D extent = choose_swap_extent(window, capabilities);
 
+    uint32_t image_count = capabilities.minImageCount + 1;
+    if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount) {
+        image_count = capabilities.maxImageCount;
+    }
+
+    VkSwapchainCreateInfoKHR swapchain_create_info = {
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = surface,
+        .minImageCount = image_count,
+        .imageFormat = surface_format.format,
+        .imageColorSpace = surface_format.colorSpace,
+        .imageExtent = extent,
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = capabilities.currentTransform,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = present_mode,
+        .clipped = VK_TRUE,
+    };
+
+    QueueFamilyIndices indices = physical_device_find_queue_families(device.physical_device, surface);
+    if (indices.graphics_family != indices.present_family) {
+        uint32_t queue_family_indices[] = {indices.graphics_family, indices.present_family};
+        swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        swapchain_create_info.queueFamilyIndexCount = 2;
+        swapchain_create_info.pQueueFamilyIndices = queue_family_indices;
+    } else {
+        swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        swapchain_create_info.queueFamilyIndexCount = 0;
+        swapchain_create_info.pQueueFamilyIndices = NULL;
+    }
+
+    VkSwapchainKHR swapchain;
+    VkResult result = vkCreateSwapchainKHR(device.logical_device, &swapchain_create_info, NULL, &swapchain);
+    // NOTE: possibly failing due to full screen request?
+    //       https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCreateSwapchainKHR.html
+    //       VK_ERROR_INITIALIZATION_FAILED
+    if (result != VK_SUCCESS){
+        printf("Failed to create swapchain!\n");
+        exit(-1);
+    }
+
+    return swapchain;
 }
 
 VkPhysicalDevice physical_device_pick(VkInstance instance, VkSurfaceKHR surface) {
@@ -311,4 +354,8 @@ void device_destroy(Device device) {
 
 void surface_destroy(VkInstance instance, VkSurfaceKHR surface) {
     vkDestroySurfaceKHR(instance, surface, NULL);
+}
+
+void swapchain_destroy(VkSwapchainKHR swapchain, Device device) {
+    vkDestroySwapchainKHR(device.logical_device, swapchain, NULL);
 }

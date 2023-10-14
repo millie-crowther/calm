@@ -22,9 +22,7 @@ void device_destroy(Device device);
 VkSurfaceKHR surface_create(VkInstance instance, Window window);
 void surface_destroy(VkInstance instance, VkSurfaceKHR surface);
 
-typedef struct SwapChain {
-
-} SwapChain;
-
+VkSwapchainKHR swapchain_create(Window window, Device device, VkSurfaceKHR surface);
+void swapchain_destroy(VkSwapchainKHR swapchain, Device device);
 
 #endif
