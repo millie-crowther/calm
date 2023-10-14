@@ -17,14 +17,14 @@ typedef struct Device {
 } Device;
 
 Device device_create(VkInstance instance, VkSurfaceKHR surface);
-void device_destroy(const Device device);
+void device_destroy(Device device);
 
 VkSurfaceKHR surface_create(VkInstance instance, Window window);
-void surface_destroy(const VkInstance instance, const VkSurfaceKHR surface);
+void surface_destroy(VkInstance instance, VkSurfaceKHR surface);
 
-typedef struct Swapchain {
+typedef struct SwapChain {
 
-} Swapchain;
+} SwapChain;
 
 
 #endif

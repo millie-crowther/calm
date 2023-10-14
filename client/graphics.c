@@ -1,9 +1,12 @@
 #include "graphics.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MAXIMUM_PRESENT_MODES 10
 
 const char * required_device_extensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -30,19 +33,18 @@ VkInstance instance_create() {
     uint32_t glfw_extension_count = 0;
     const char ** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
 
-    const char * required_extensions[glfw_extension_count];
-    for (int i = 0; i < glfw_extension_count; i++){
-        required_extensions[i] = glfw_extensions[i];
-    }
-
     // apple only
+//    const char * required_extensions[glfw_extension_count];
+//    for (int i = 0; i < glfw_extension_count; i++){
+//        required_extensions[i] = glfw_extensions[i];
+//    }
 //    required_extensions[glfw_extension_count] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
 //    create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 //    glfw_extension_count += 1;
     //
 
     create_info.enabledExtensionCount = glfw_extension_count;
-    create_info.ppEnabledExtensionNames = required_extensions;
+    create_info.ppEnabledExtensionNames = glfw_extensions;
     create_info.enabledLayerCount = 0;
 
     VkInstance instance;
@@ -54,12 +56,13 @@ VkInstance instance_create() {
 
     uint32_t extension_count = 0;
     vkEnumerateInstanceExtensionProperties(NULL, &extension_count, NULL);
-    VkExtensionProperties extensions[extension_count];
+    VkExtensionProperties * extensions = malloc(sizeof(VkExtensionProperties) * extension_count);
     vkEnumerateInstanceExtensionProperties(NULL, &extension_count, extensions);
     printf("Available extensions:\n");
     for (uint32_t i = 0; i < extension_count; i++){
         printf("\t%s\n", extensions[i].extensionName);
     }
+    free(extensions);
 
     return instance;
 }
@@ -77,7 +80,7 @@ static QueueFamilyIndices physical_device_find_queue_families(VkPhysicalDevice p
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, NULL);
 
-    VkQueueFamilyProperties queue_families[queue_family_count];
+    VkQueueFamilyProperties * queue_families = malloc(sizeof(VkQueueFamilyProperties) * queue_family_count);
     vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_count, queue_families);
 
     for (int i = 0; i < queue_family_count; i++){
@@ -92,6 +95,7 @@ static QueueFamilyIndices physical_device_find_queue_families(VkPhysicalDevice p
         }
     }
 
+    free(queue_families);
     return queue_family_indices;
 }
 
@@ -99,10 +103,11 @@ static bool physical_device_has_required_extensions(VkPhysicalDevice physical_de
     uint32_t device_extension_count;
     vkEnumerateDeviceExtensionProperties(physical_device, NULL, &device_extension_count, NULL);
 
-    VkExtensionProperties device_extensions[device_extension_count];
+    VkExtensionProperties * device_extensions = malloc(sizeof(VkExtensionProperties) * device_extension_count);
     vkEnumerateDeviceExtensionProperties(physical_device, NULL, &device_extension_count, device_extensions);
 
     uint32_t required_extensions_length = sizeof(required_device_extensions) / sizeof(required_device_extensions[0]);
+    bool result = true;
     for (uint32_t i = 0; i < required_extensions_length; i++){
         bool extension_found = false;
 
@@ -113,11 +118,13 @@ static bool physical_device_has_required_extensions(VkPhysicalDevice physical_de
         }
 
         if (!extension_found){
-            return false;
+            result = false;
+            break;
         }
     }
 
-    return true;
+    free(device_extensions);
+    return result;
 }
 
 static bool physical_device_is_suitable(VkPhysicalDevice physical_device, VkSurfaceKHR surface) {
@@ -139,19 +146,95 @@ static bool physical_device_is_suitable(VkPhysicalDevice physical_device, VkSurf
         return false;
     }
 
+    uint32_t format_count;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, NULL);
+    if (format_count == 0){
+        return false;
+    }
+
+    uint32_t present_mode_count;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &present_mode_count, NULL);
+    if (present_mode_count == 0){
+        return false;
+    }
+
     return true;
+}
+
+VkSurfaceFormatKHR choose_swap_surface_format(VkPhysicalDevice physical_device, VkSurfaceKHR surface){
+    uint32_t format_count;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &format_count, NULL);
+
+    VkSurfaceFormatKHR * surface_formats = malloc(sizeof(VkSurfaceFormatKHR) * format_count);
+    VkSurfaceFormatKHR result = surface_formats[0];
+    for (uint32_t i = 1; i < format_count; i++){
+        if (surface_formats[i].format == VK_FORMAT_B8G8R8A8_SRGB && surface_formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR){
+            result = surface_formats[i];
+            break;
+        }
+    }
+
+    free(surface_formats);
+    return result;
+}
+
+VkPresentModeKHR choose_present_mode(VkPhysicalDevice physical_device, VkSurfaceKHR surface){
+    uint32_t present_mode_count;
+    VkPresentModeKHR present_modes[MAXIMUM_PRESENT_MODES];
+    vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &present_mode_count, present_modes);
+
+    for (uint32_t i = 0; i < present_mode_count; i++) {
+        if (present_modes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+            return VK_PRESENT_MODE_MAILBOX_KHR;
+        }
+    }
+
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D choose_swap_extent(Window window, VkPhysicalDevice physical_device, VkSurfaceKHR surface){
+    VkSurfaceCapabilitiesKHR capabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities);
+
+    if (capabilities.currentExtent.width != UINT32_MAX){
+        return capabilities.currentExtent;
+    }
+
+    int width, height;
+    glfwGetFramebufferSize(window.glfw_window, &width, &height);
+
+    VkExtent2D extent = (VkExtent2D){
+        .width = (uint32_t) width,
+        .height = (uint32_t) height,
+    };
+
+    extent.width = extent.width < capabilities.minImageExtent.width ? capabilities.minImageExtent.width : extent.width;
+    extent.height = extent.height < capabilities.minImageExtent.height ? capabilities.minImageExtent.height : extent.height;
+    extent.width = extent.width > capabilities.maxImageExtent.width ? capabilities.maxImageExtent.width : extent.width;
+    extent.height = extent.height > capabilities.maxImageExtent.height ? capabilities.maxImageExtent.height : extent.height;
+
+    return extent;
+}
+
+SwapChain swap_chain_create(Window window, VkPhysicalDevice physical_device, VkSurfaceKHR surface){
+    VkSurfaceFormatKHR surface_format = choose_swap_surface_format(physical_device, surface);
+    VkPresentModeKHR present_mode = choose_present_mode(physical_device, surface);
+    VkExtent2D extent = choose_swap_extent(window, physical_device, surface);
+
+
 }
 
 VkPhysicalDevice physical_device_pick(VkInstance instance, VkSurfaceKHR surface) {
     uint32_t physical_device_count;
     vkEnumeratePhysicalDevices(instance, &physical_device_count, NULL);
 
-    VkPhysicalDevice physical_devices[physical_device_count];
+    VkPhysicalDevice * physical_devices = malloc(sizeof(VkPhysicalDevice) * physical_device_count);
     vkEnumeratePhysicalDevices(instance, &physical_device_count, physical_devices);
 
     for (uint32_t i = 0; i < physical_device_count; i++){
         VkPhysicalDevice physical_device = physical_devices[i];
         if (physical_device_is_suitable(physical_device, surface)){
+            free(physical_devices);
             return physical_device;
         }
     }
@@ -222,10 +305,10 @@ VkSurfaceKHR surface_create(VkInstance instance, Window window) {
     return surface;
 }
 
-void device_destroy(const Device device) {
+void device_destroy(Device device) {
     vkDestroyDevice(device.logical_device, NULL);
 }
 
-void surface_destroy(const VkInstance instance, const VkSurfaceKHR surface) {
+void surface_destroy(VkInstance instance, VkSurfaceKHR surface) {
     vkDestroySurfaceKHR(instance, surface, NULL);
 }
